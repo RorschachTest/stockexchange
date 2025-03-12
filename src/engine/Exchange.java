@@ -1,9 +1,12 @@
 package engine;
 
+import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 
 import entities.Order;
 import entities.Stock;
+import entities.Trade;
 
 public class Exchange {
     private final Map<String, Stock> stocks;
@@ -21,7 +24,8 @@ public class Exchange {
     }
 
     public void placeOrder(Order order) {
-        tradingEngine.addOrder(order);
+        orderManagement.addOrder(order);
+        tradingEngine.addOrder(order).ifPresent(orderManagement::updateOrderStatus);
     }
 
     public void updateOrderPrice(Order order, double newPrice) {

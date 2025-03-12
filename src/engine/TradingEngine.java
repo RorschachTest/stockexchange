@@ -1,6 +1,7 @@
 package engine;
 
 import java.util.List;
+import java.util.Optional;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
@@ -20,7 +21,7 @@ public class TradingEngine {
         this.executorService = Executors.newFixedThreadPool(Runtime.getRuntime().availableProcessors());
     }
     
-    public List<Trade> addOrder(Order order) {
+    public Optional<List<Trade>> addOrder(Order order) {
         Future<List<Trade>> futureTrades = executorService.submit(() -> {
             OrderBook orderBook = orderBooks.computeIfAbsent(order.getStockSymbol(), k -> new OrderBook(order.getStockSymbol(), new DefaultMatchingStrategy()));
             orderBook.addOrder(order);
@@ -28,14 +29,14 @@ public class TradingEngine {
         });
 
         try {
-            return futureTrades.get();
+            return Optional.of(futureTrades.get());
         } catch (InterruptedException | ExecutionException e) {
             e.printStackTrace();
-            return null;
+            return Optional.empty();
         }
     }
 
-    public List<Trade> updateOrderPrice(Order order, double newPrice) {
+    public Optional<List<Trade>> updateOrderPrice(Order order, double newPrice) {
         Future<List<Trade>> futureTrades = executorService.submit(() -> {
             OrderBook orderBook = orderBooks.get(order.getStockSymbol());
             if (orderBook != null) {
@@ -45,14 +46,14 @@ public class TradingEngine {
         });
 
         try {
-            return futureTrades.get();
+            return Optional.of(futureTrades.get());
         } catch (InterruptedException | ExecutionException e) {
             e.printStackTrace();
-            return null;
+            return Optional.empty();
         }
     }
 
-    public List<Trade> updateOrderQuantity(Order order, int newQuantity) {
+    public Optional<List<Trade>> updateOrderQuantity(Order order, int newQuantity) {
         Future<List<Trade>> futureTrades = executorService.submit(() -> {
             OrderBook orderBook = orderBooks.get(order.getStockSymbol());
             if (orderBook != null) {
@@ -62,27 +63,19 @@ public class TradingEngine {
         });
 
         try {
-            return futureTrades.get();
+            return Optional.of(futureTrades.get());
         } catch (InterruptedException | ExecutionException e) {
             e.printStackTrace();
-            return null;
+            return Optional.empty();
         }
     }
 
-    public List<Trade> cancelOrder(Order order) {
-        Future<List<Trade>> futureTrades = executorService.submit(() -> {
+    public void cancelOrder(Order order) {
+        executorService.submit(() -> {
             OrderBook orderBook = orderBooks.get(order.getStockSymbol());
             if (orderBook != null) {
                 orderBook.cancelOrder(order);
             }
-            return orderBook.matchOrders();
         });
-
-        try {
-            return futureTrades.get();
-        } catch (InterruptedException | ExecutionException e) {
-            e.printStackTrace();
-            return null;
-        }
     }
 }

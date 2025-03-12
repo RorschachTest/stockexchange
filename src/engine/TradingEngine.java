@@ -31,7 +31,7 @@ public class TradingEngine {
 
     public void addOrder(Order order) {
         orderExecutorService.submit(() -> {
-            OrderBook orderBook = orderBooks.computeIfAbsent(order.getStockSymbol(), k -> new OrderBook(order.getStockSymbol(), new DefaultMatchingStrategy()));
+            OrderBook orderBook = orderBooks.computeIfAbsent(order.getStockSymbol(), k -> new OrderBook(order.getStockSymbol()));
             orderBook.addOrder(order);
             BlockingQueue<Order> orderQueue = orderQueues.computeIfAbsent(order.getStockSymbol(), k -> new LinkedBlockingQueue<>());
             orderQueue.offer(order);
@@ -94,7 +94,7 @@ public class TradingEngine {
                             OrderBook orderBook = orderBooks.get(stockSymbol);
                             if (orderBook != null) {
                                 List<Trade> trades = orderBook.matchOrders();
-                                updateOrderManagement(trades);
+                                orderManagement.updateOrder(trades);
                             }
                         } catch (InterruptedException e) {
                             Thread.currentThread().interrupt();
@@ -102,12 +102,6 @@ public class TradingEngine {
                     }
                 });
             }
-        }
-    }
-
-    private void updateOrderManagement(List<Trade> trades) {
-        for (Trade trade : trades) {
-            orderManagement.updateOrder(trade);
         }
     }
 

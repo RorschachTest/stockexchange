@@ -1,12 +1,13 @@
 package engine;
 
+import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Queue;
 import java.util.concurrent.PriorityBlockingQueue;
 import java.util.concurrent.locks.Lock;
 import java.util.concurrent.locks.ReentrantLock;
 
-import engine.matchingstrategy.MatchingStrategy;
 import entities.Order;
 import entities.Trade;
 
@@ -15,14 +16,12 @@ public class OrderBook {
     private final PriorityBlockingQueue<Order> buyOrders;
     private final PriorityBlockingQueue<Order> sellOrders;
     private final Lock lock;
-    private final MatchingStrategy matchingStrategy;
 
-    public OrderBook(String stockSymbol, MatchingStrategy matchingStrategy) {
+    public OrderBook(String stockSymbol) {
         this.stockSymbol = stockSymbol;
-        this.buyOrders = new PriorityBlockingQueue<>((o1, o2) -> Double.compare(o2.getPrice(), o1.getPrice())); // Max-heap for buy orders
-        this.sellOrders = new PriorityBlockingQueue<>((o1, o2) -> Double.compare(o1.getPrice(), o2.getPrice())); // Min-heap for sell orders
+        this.buyOrders = new PriorityBlockingQueue<>(10, (o1, o2) -> Double.compare(o2.getPrice(), o1.getPrice())); // Max-heap for buy orders
+        this.sellOrders = new PriorityBlockingQueue<>(10, (o1, o2) -> Double.compare(o1.getPrice(), o2.getPrice())); // Min-heap for sell orders
         this.lock = new ReentrantLock();
-        this.matchingStrategy = matchingStrategy;
     }
 
     public void addOrder(Order order) {
@@ -38,12 +37,36 @@ public class OrderBook {
         }
     }
 
-    public List<Trade> matchOrders() {
+     public List<Trade> matchOrders(Queue<Order> buyOrders, Queue<Order> sellOrders, String stockSymbol) {
         List<Trade> trades = new ArrayList<>();
+        
         while (!buyOrders.isEmpty() && !sellOrders.isEmpty()) {
-            Trade trade = matchingStrategy.matchOrders(buyOrders, sellOrders, stockSymbol);
-            if (trade != null) {
-                trades.add(trade);
+            Order buyOrder = buyOrders.peek();
+            Order sellOrder = sellOrders.peek();
+
+            if (buyOrder.getPrice() >= sellOrder.getPrice()) {
+                // Match found
+                double transactionPrice = (buyOrder.getOrderAcceptedTimestamp().isBefore(sellOrder.getOrderAcceptedTimestamp())) ? buyOrder.getPrice() : sellOrder.getPrice();
+                int quantity = Math.min(buyOrder.getQuantity(), sellOrder.getQuantity());
+
+                // Create transaction
+                Trade transaction = new Trade("txn_" + System.currentTimeMillis(), buyOrder.getOrderId(), sellOrder.getOrderId(), stockSymbol, quantity, transactionPrice, LocalDateTime.now());
+                System.out.println("Transaction executed: " + transaction);
+
+                // Update order quantities
+                if (buyOrder.getQuantity() > quantity) {
+                    buyOrder.setQuantity(buyOrder.getQuantity() - quantity);
+                } else {
+                    buyOrders.poll();
+                }
+
+                if (sellOrder.getQuantity() > quantity) {
+                    sellOrder.setQuantity(sellOrder.getQuantity() - quantity);
+                } else {
+                    sellOrders.poll();
+                }
+
+                trades.add(transaction);
             } else {
                 break;
             }

@@ -1,0 +1,4 @@
+1. modify cancel order, 
+2. time expiry, 
+3. matchALLorders then return List of trade, 
+4. save trade information in exchange 

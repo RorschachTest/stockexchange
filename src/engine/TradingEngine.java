@@ -19,53 +19,68 @@ public class TradingEngine {
         this.orderBooks = new ConcurrentHashMap<>();
         this.executorService = Executors.newFixedThreadPool(Runtime.getRuntime().availableProcessors());
     }
-
-    public void addOrder(Order order) {
-        executorService.submit(() -> {
+    public List<Trade> addOrder(Order order) {
+        Future<List<Trade>> futureTrades = executorService.submit(() -> {
             OrderBook orderBook = orderBooks.computeIfAbsent(order.getStockSymbol(), k -> new OrderBook(order.getStockSymbol(), new DefaultMatchingStrategy()));
             orderBook.addOrder(order);
-            List<Trade> trades = orderBook.matchOrders();
-            orderManagement.updateOrderStatus(trades);
+            return orderBook.matchOrders();
         });
+
+        try {
+            return futureTrades.get();
+        } catch (InterruptedException | ExecutionException e) {
+            e.printStackTrace();
+            return null;
+        }
     }
 
     public List<Trade> updateOrderPrice(Order order, double newPrice) {
         Future<List<Trade>> futureTrades = executorService.submit(() -> {
             OrderBook orderBook = orderBooks.get(order.getStockSymbol());
             if (orderBook != null) {
-            orderBook.updateOrderPrice(order, newPrice);
+                orderBook.updateOrderPrice(order, newPrice);
             }
-            List<Trade> trades = orderBook.matchOrders();
-            return trades;
+            return orderBook.matchOrders();
         });
 
         try {
-            List<Trade> trades = futureTrades.get();
+            return futureTrades.get();
         } catch (InterruptedException | ExecutionException e) {
             e.printStackTrace();
+            return null;
         }
     }
-
-    public void updateOrderQuantity(Order order, int newQuantity) {
-        executorService.submit(() -> {
+    public List<Trade> updateOrderQuantity(Order order, int newQuantity) {
+        Future<List<Trade>> futureTrades = executorService.submit(() -> {
             OrderBook orderBook = orderBooks.get(order.getStockSymbol());
             if (orderBook != null) {
                 orderBook.updateOrderQuantity(order, newQuantity);
             }
-            List<Trade> trades = orderBook.matchOrders();
-            orderManagement.updateOrderStatus(trades);
+            return orderBook.matchOrders();
         });
+
+        try {
+            return futureTrades.get();
+        } catch (InterruptedException | ExecutionException e) {
+            e.printStackTrace();
+            return null;
+        }
     }
 
-    public void cancelOrder(Order order) {
-        executorService.submit(() -> {
+    public List<Trade> cancelOrder(Order order) {
+        Future<List<Trade>> futureTrades = executorService.submit(() -> {
             OrderBook orderBook = orderBooks.get(order.getStockSymbol());
             if (orderBook != null) {
                 orderBook.cancelOrder(order);
             }
-            List<Trade> trades = orderBook.matchOrders();
-            orderManagement.updateOrderStatus(trades);
+            return orderBook.matchOrders();
         });
-    }
 
+        try {
+            return futureTrades.get();
+        } catch (InterruptedException | ExecutionException e) {
+            e.printStackTrace();
+            return null;
+        }
+    }
 }

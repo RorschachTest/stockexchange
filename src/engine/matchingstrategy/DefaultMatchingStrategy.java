@@ -1,13 +1,12 @@
 package engine.matchingstrategy;
 
 import java.time.LocalDateTime;
-import java.util.Optional;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Queue;
 
 import entities.Order;
 import entities.Trade;
-import java.util.ArrayList;
-import java.util.List;
 
 public class DefaultMatchingStrategy implements MatchingStrategy {
 
@@ -48,5 +47,4 @@ public class DefaultMatchingStrategy implements MatchingStrategy {
         }
         return trades;
     }
-
 }

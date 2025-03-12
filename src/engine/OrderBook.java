@@ -1,7 +1,7 @@
 package engine;
 
+import java.util.ArrayList;
 import java.util.List;
-import java.util.Queue;
 import java.util.concurrent.PriorityBlockingQueue;
 import java.util.concurrent.locks.Lock;
 import java.util.concurrent.locks.ReentrantLock;
@@ -12,31 +12,18 @@ import entities.Trade;
 
 public class OrderBook {
     private final String stockSymbol;
-    private final Queue<Order> buyOrders;
-    private final Queue<Order> sellOrders;
+    private final PriorityBlockingQueue<Order> buyOrders;
+    private final PriorityBlockingQueue<Order> sellOrders;
     private final Lock lock;
-    private MatchingStrategy matchingStrategy;
+    private final MatchingStrategy matchingStrategy;
 
     public OrderBook(String stockSymbol, MatchingStrategy matchingStrategy) {
         this.stockSymbol = stockSymbol;
-        this.buyOrders = new PriorityBlockingQueue<Order>(10, (o1, o2) -> Double.compare(o2.getPrice(), o1.getPrice())); // Max-heap for buy orders
-        this.sellOrders = new PriorityBlockingQueue<Order>(10, (o1, o2) -> Double.compare(o1.getPrice(), o2.getPrice())); // Min-heap for sell orders
+        this.buyOrders = new PriorityBlockingQueue<>((o1, o2) -> Double.compare(o2.getPrice(), o1.getPrice())); // Max-heap for buy orders
+        this.sellOrders = new PriorityBlockingQueue<>((o1, o2) -> Double.compare(o1.getPrice(), o2.getPrice())); // Min-heap for sell orders
         this.lock = new ReentrantLock();
         this.matchingStrategy = matchingStrategy;
     }
-
-    public String getStockSymbol() {
-        return stockSymbol;
-    }
-
-    public Queue<Order> getBuyOrders() {
-        return buyOrders;
-    }
-
-    public Queue<Order> getSellOrders() {
-        return sellOrders;
-    }
-
 
     public void addOrder(Order order) {
         lock.lock();
@@ -49,6 +36,19 @@ public class OrderBook {
         } finally {
             lock.unlock();
         }
+    }
+
+    public List<Trade> matchOrders() {
+        List<Trade> trades = new ArrayList<>();
+        while (!buyOrders.isEmpty() && !sellOrders.isEmpty()) {
+            Trade trade = matchingStrategy.matchOrders(buyOrders, sellOrders, stockSymbol);
+            if (trade != null) {
+                trades.add(trade);
+            } else {
+                break;
+            }
+        }
+        return trades;
     }
 
     public void updateOrderPrice(Order order, double newPrice) {
@@ -98,8 +98,15 @@ public class OrderBook {
         }
     }
 
-    List<Trade> matchOrders() {
-        return matchingStrategy.matchOrders(buyOrders, sellOrders, this.stockSymbol);
+    public String getStockSymbol() {
+        return stockSymbol;
     }
-    
+
+    public PriorityBlockingQueue<Order> getBuyOrders() {
+        return buyOrders;
+    }
+
+    public PriorityBlockingQueue<Order> getSellOrders() {
+        return sellOrders;
+    }
 }

@@ -1,11 +1,11 @@
 package engine;
 
 import java.util.List;
+import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
-import java.util.concurrent.Future;
+import java.util.concurrent.LinkedBlockingQueue;
 
 import engine.matchingstrategy.DefaultMatchingStrategy;
 import entities.Order;
@@ -13,59 +13,107 @@ import entities.Trade;
 
 public class TradingEngine {
     private final ConcurrentHashMap<String, OrderBook> orderBooks;
-    private final ExecutorService executorService;
+    private final ConcurrentHashMap<String, BlockingQueue<Order>> orderQueues;
+    private final ExecutorService orderExecutorService;
+    private final ExecutorService matchingExecutorService;
+    private final OrderManagement orderManagement;
+    private volatile boolean running = true;
 
-    public TradingEngine() {
+    public TradingEngine(OrderManagement orderManagement) {
         this.orderBooks = new ConcurrentHashMap<>();
-        this.executorService = Executors.newFixedThreadPool(Runtime.getRuntime().availableProcessors());
+        this.orderQueues = new ConcurrentHashMap<>();
+        this.orderExecutorService = Executors.newFixedThreadPool(Runtime.getRuntime().availableProcessors());
+        this.matchingExecutorService = Executors.newCachedThreadPool();
+        this.orderManagement = orderManagement;
+
+        this.matchingExecutorService.submit(this::matchOrdersContinuously);
     }
 
     public void addOrder(Order order) {
-        executorService.submit(() -> {
+        orderExecutorService.submit(() -> {
             OrderBook orderBook = orderBooks.computeIfAbsent(order.getStockSymbol(), k -> new OrderBook(order.getStockSymbol(), new DefaultMatchingStrategy()));
             orderBook.addOrder(order);
-            List<Trade> trades = orderBook.matchOrders();
-            orderManagement.updateOrderStatus(trades);
+            BlockingQueue<Order> orderQueue = orderQueues.computeIfAbsent(order.getStockSymbol(), k -> new LinkedBlockingQueue<>());
+            orderQueue.offer(order);
+            synchronized (orderQueue) {
+                orderQueue.notify();
+            }
         });
     }
 
-    public List<Trade> updateOrderPrice(Order order, double newPrice) {
-        Future<List<Trade>> futureTrades = executorService.submit(() -> {
+    public void updateOrderPrice(Order order, double newPrice) {
+        orderExecutorService.submit(() -> {
             OrderBook orderBook = orderBooks.get(order.getStockSymbol());
             if (orderBook != null) {
-            orderBook.updateOrderPrice(order, newPrice);
+                orderBook.updateOrderPrice(order, newPrice);
+                BlockingQueue<Order> orderQueue = orderQueues.computeIfAbsent(order.getStockSymbol(), k -> new LinkedBlockingQueue<>());
+                orderQueue.offer(order);
+                synchronized (orderQueue) {
+                    orderQueue.notify();
+                }
             }
-            List<Trade> trades = orderBook.matchOrders();
-            return trades;
         });
-
-        try {
-            List<Trade> trades = futureTrades.get();
-        } catch (InterruptedException | ExecutionException e) {
-            e.printStackTrace();
-        }
     }
 
     public void updateOrderQuantity(Order order, int newQuantity) {
-        executorService.submit(() -> {
+        orderExecutorService.submit(() -> {
             OrderBook orderBook = orderBooks.get(order.getStockSymbol());
             if (orderBook != null) {
                 orderBook.updateOrderQuantity(order, newQuantity);
+                BlockingQueue<Order> orderQueue = orderQueues.computeIfAbsent(order.getStockSymbol(), k -> new LinkedBlockingQueue<>());
+                orderQueue.offer(order);
+                synchronized (orderQueue) {
+                    orderQueue.notify();
+                }
             }
-            List<Trade> trades = orderBook.matchOrders();
-            orderManagement.updateOrderStatus(trades);
         });
     }
 
     public void cancelOrder(Order order) {
-        executorService.submit(() -> {
+        orderExecutorService.submit(() -> {
             OrderBook orderBook = orderBooks.get(order.getStockSymbol());
             if (orderBook != null) {
                 orderBook.cancelOrder(order);
+                BlockingQueue<Order> orderQueue = orderQueues.computeIfAbsent(order.getStockSymbol(), k -> new LinkedBlockingQueue<>());
+                orderQueue.offer(order);
+                synchronized (orderQueue) {
+                    orderQueue.notify();
+                }
             }
-            List<Trade> trades = orderBook.matchOrders();
-            orderManagement.updateOrderStatus(trades);
         });
     }
 
+    private void matchOrdersContinuously() {
+        while (running) {
+            for (String stockSymbol : orderQueues.keySet()) {
+                BlockingQueue<Order> orderQueue = orderQueues.get(stockSymbol);
+                matchingExecutorService.submit(() -> {
+                    while (running) {
+                        try {
+                            Order order = orderQueue.take(); // Wait for a new order
+                            OrderBook orderBook = orderBooks.get(stockSymbol);
+                            if (orderBook != null) {
+                                List<Trade> trades = orderBook.matchOrders();
+                                updateOrderManagement(trades);
+                            }
+                        } catch (InterruptedException e) {
+                            Thread.currentThread().interrupt();
+                        }
+                    }
+                });
+            }
+        }
+    }
+
+    private void updateOrderManagement(List<Trade> trades) {
+        for (Trade trade : trades) {
+            orderManagement.updateOrder(trade);
+        }
+    }
+
+    public void shutdown() {
+        running = false;
+        matchingExecutorService.shutdownNow();
+        orderExecutorService.shutdown();
+    }
 }

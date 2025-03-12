@@ -1,12 +1,10 @@
 package engine;
 
-import java.util.List;
 import java.util.Map;
-import java.util.Optional;
+import java.util.concurrent.ConcurrentHashMap;
 
 import entities.Order;
 import entities.Stock;
-import entities.Trade;
 import exceptions.OrderNotFoundException;
 import entities.Order.OrderStatus;
 
@@ -15,8 +13,8 @@ public class Exchange {
     private final TradingEngine tradingEngine;
     private final OrderManagement orderManagement;
 
-    public Exchange(Map<String, Stock> stocks) {
-        this.stocks = stocks;
+    public Exchange() {
+        this.stocks = new ConcurrentHashMap<>();
         this.orderManagement = new OrderManagement();
         this.tradingEngine = new TradingEngine();
     }
@@ -39,7 +37,16 @@ public class Exchange {
     }
 
     public void cancelOrder(Order order) {
+        orderManagement.setOrderStatus(order.getOrderId(), OrderStatus.CANCELLED);
         tradingEngine.cancelOrder(order);
+    }
+
+    public OrderStatus getOrderStatus(String orderId) throws OrderNotFoundException {
+        return orderManagement.getOrderStatus(orderId);
+    }
+
+    public void shutdown() {
+        tradingEngine.shutdown();
     }
     
 }

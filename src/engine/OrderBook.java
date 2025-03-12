@@ -20,8 +20,21 @@ public class OrderBook {
 
     public OrderBook(String stockSymbol, MatchingStrategy matchingStrategy) {
         this.stockSymbol = stockSymbol;
-        this.buyOrders = new PriorityBlockingQueue<Order>(10, (o1, o2) -> Double.compare(o2.getPrice(), o1.getPrice())); // Max-heap for buy orders
-        this.sellOrders = new PriorityBlockingQueue<Order>(10, (o1, o2) -> Double.compare(o1.getPrice(), o2.getPrice())); // Min-heap for sell orders
+        this.buyOrders = new PriorityBlockingQueue<Order>(10, (o1, o2) -> {
+            int priceComparison = Double.compare(o2.getPrice(), o1.getPrice());
+            if (priceComparison == 0) {
+                return o1.getOrderAcceptedTimestamp().compareTo(o2.getOrderAcceptedTimestamp());
+            }
+            return priceComparison;
+        }); // Max-heap for buy orders
+
+        this.sellOrders = new PriorityBlockingQueue<Order>(10, (o1, o2) -> {
+            int priceComparison = Double.compare(o1.getPrice(), o2.getPrice());
+            if (priceComparison == 0) {
+                return o1.getOrderAcceptedTimestamp().compareTo(o2.getOrderAcceptedTimestamp());
+            }
+            return priceComparison;
+        }); // Min-heap for sell orders
         this.lock = new ReentrantLock();
         this.matchingStrategy = matchingStrategy;
     }
@@ -48,6 +61,7 @@ public class OrderBook {
                 sellOrders.add(order);
             }
         } finally {
+            System.out.println("Order added to order book: " + order);
             lock.unlock();
         }
     }

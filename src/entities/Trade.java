@@ -49,5 +49,10 @@ public class Trade {
         return tradeTime;
     }
 
-    
+    @Override
+    public String toString() {
+        return "Trade [tradeId=" + tradeId + ", buyerOrderId=" + buyerOrderId + ", sellerOrderId=" + sellerOrderId
+                + ", stockSymbol=" + stockSymbol + ", quantity=" + quantity + ", price=" + price + ", tradeTime="
+                + tradeTime + "]";
+    }
 }

@@ -10,42 +10,28 @@ import entities.Order.OrderStatus;
 import exceptions.OrderNotFoundException;
 
 public class OrderManagement {
-    // Map<String, Map<String, Order>> orderHistory;
-    // Map<String, String> orderToUserMapping;
     Map<String, OrderStatus> orderStatus;
     
     public OrderManagement() {
         this.orderStatus = new ConcurrentHashMap<>();
     }
 
-    // public void setOrderStatus(String orderId, OrderStatus status) throws OrderNotFoundException {
-    //     if(!orderToUserMapping.containsKey(orderId)
-    //     || !orderHistory.containsKey(orderToUserMapping.get(orderId))
-    //     || !orderHistory.get(orderToUserMapping.get(orderId)).containsKey(orderId)) {
-    //         throw new OrderNotFoundException("Order not found");
-    //     }
-
-    //     orderHistory.get(orderToUserMapping.get(orderId)).get(orderId).setStatus(status);
-    // }
-
-    public void setOrderStatus(String orderId, OrderStatus status) throws OrderNotFoundException {
-        if(!orderStatus.containsKey(orderId)) {
-            throw new OrderNotFoundException("Order not found");
-        }
-
+    public void setOrderStatus(String orderId, OrderStatus status) {
         orderStatus.put(orderId, status);
     }
 
     public void updateOrderStatus(List<Trade> trades) {
         trades.forEach(trade -> {
-            try {
-                setOrderStatus(trade.getBuyerOrderId(), OrderStatus.COMPLETE);
-                setOrderStatus(trade.getSellerOrderId(), OrderStatus.COMPLETE);
-            } catch (OrderNotFoundException e) {
-                e.printStackTrace();
-            }
+            setOrderStatus(trade.getBuyerOrderId(), OrderStatus.COMPLETED);
+            setOrderStatus(trade.getSellerOrderId(), OrderStatus.COMPLETED);
         });
-        
+    }
+
+    public OrderStatus getOrderStatus(String orderId) throws OrderNotFoundException {
+        if(!orderStatus.containsKey(orderId)) {
+            throw new OrderNotFoundException();
+        }
+        return orderStatus.get(orderId);
     }
 
 }

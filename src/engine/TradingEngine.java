@@ -95,4 +95,8 @@ public class TradingEngine {
             }
         });
     }
+
+    public void shutdown() {
+        executorService.shutdown();
+    }
 }

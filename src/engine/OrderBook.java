@@ -9,6 +9,7 @@ import java.util.concurrent.locks.ReentrantLock;
 import engine.matchingstrategy.MatchingStrategy;
 import entities.Order;
 import entities.Trade;
+import exceptions.NoPendingOrderMatchException;
 
 public class OrderBook {
     private final String stockSymbol;
@@ -51,14 +52,20 @@ public class OrderBook {
         }
     }
 
-    public void updateOrderPrice(Order order, double newPrice) {
+    public void updateOrderPrice(Order order, double newPrice) throws NoPendingOrderMatchException {
         lock.lock();
         try {
             if (order.getOrderType() == Order.OrderType.BUY) {
+                if (!buyOrders.contains(order)){
+                    throw new NoPendingOrderMatchException();
+                }
                 buyOrders.remove(order);
                 order.setPrice(newPrice);
                 buyOrders.add(order);
             } else {
+                if(!sellOrders.contains(order)){
+                    throw new NoPendingOrderMatchException();
+                }
                 sellOrders.remove(order);
                 order.setPrice(newPrice);
                 sellOrders.add(order);
@@ -68,14 +75,20 @@ public class OrderBook {
         }
     }
 
-    public void updateOrderQuantity(Order order, int newQuantity) {
+    public void updateOrderQuantity(Order order, int newQuantity) throws NoPendingOrderMatchException {
         lock.lock();
         try {
             if (order.getOrderType() == Order.OrderType.BUY) {
+                if (!buyOrders.contains(order)){
+                    throw new NoPendingOrderMatchException();
+                }
                 buyOrders.remove(order);
                 order.setQuantity(newQuantity);
                 buyOrders.add(order);
             } else {
+                if(!sellOrders.contains(order)){
+                    throw new NoPendingOrderMatchException();
+                }
                 sellOrders.remove(order);
                 order.setQuantity(newQuantity);
                 sellOrders.add(order);
@@ -85,12 +98,18 @@ public class OrderBook {
         }
     }
 
-    public void cancelOrder(Order order) {
+    public void cancelOrder(Order order) throws NoPendingOrderMatchException {
         lock.lock();
         try {
             if (order.getOrderType() == Order.OrderType.BUY) {
+                if(!buyOrders.contains(order)){
+                    throw new NoPendingOrderMatchException();                    
+                }
                 buyOrders.remove(order);
             } else {
+                if(!sellOrders.contains(order)){
+                    throw new NoPendingOrderMatchException();
+                }
                 sellOrders.remove(order);
             }
         } finally {

@@ -7,6 +7,8 @@ import java.util.Optional;
 import entities.Order;
 import entities.Stock;
 import entities.Trade;
+import exceptions.OrderNotFoundException;
+import entities.Order.OrderStatus;
 
 public class Exchange {
     private final Map<String, Stock> stocks;
@@ -23,8 +25,8 @@ public class Exchange {
         stocks.put(stock.getSymbol(), stock);
     }
 
-    public void placeOrder(Order order) {
-        orderManagement.addOrder(order);
+    public void placeOrder(Order order) throws OrderNotFoundException {
+        orderManagement.setOrderStatus(order.getOrderId(), OrderStatus.OPEN);
         tradingEngine.addOrder(order).ifPresent(orderManagement::updateOrderStatus);
     }
 

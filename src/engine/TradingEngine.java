@@ -1,5 +1,6 @@
 package engine;
 
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 import java.util.concurrent.ConcurrentHashMap;
@@ -11,6 +12,7 @@ import java.util.concurrent.Future;
 import engine.matchingstrategy.DefaultMatchingStrategy;
 import entities.Order;
 import entities.Trade;
+import exceptions.NoPendingOrderMatchException;
 
 public class TradingEngine {
     private final ConcurrentHashMap<String, OrderBook> orderBooks;
@@ -20,7 +22,7 @@ public class TradingEngine {
         this.orderBooks = new ConcurrentHashMap<>();
         this.executorService = Executors.newFixedThreadPool(Runtime.getRuntime().availableProcessors());
     }
-    
+
     public Optional<List<Trade>> addOrder(Order order) {
         Future<List<Trade>> futureTrades = executorService.submit(() -> {
             OrderBook orderBook = orderBooks.computeIfAbsent(order.getStockSymbol(), k -> new OrderBook(order.getStockSymbol(), new DefaultMatchingStrategy()));
@@ -29,7 +31,7 @@ public class TradingEngine {
         });
 
         try {
-            return Optional.of(futureTrades.get());
+            return Optional.ofNullable(futureTrades.get());
         } catch (InterruptedException | ExecutionException e) {
             e.printStackTrace();
             return Optional.empty();
@@ -38,15 +40,20 @@ public class TradingEngine {
 
     public Optional<List<Trade>> updateOrderPrice(Order order, double newPrice) {
         Future<List<Trade>> futureTrades = executorService.submit(() -> {
-            OrderBook orderBook = orderBooks.get(order.getStockSymbol());
-            if (orderBook != null) {
-                orderBook.updateOrderPrice(order, newPrice);
+            try {
+                OrderBook orderBook = orderBooks.get(order.getStockSymbol());
+                if (orderBook != null) {
+                    orderBook.updateOrderPrice(order, newPrice);
+                    return orderBook.matchOrders();
+                }
+            } catch (NoPendingOrderMatchException e) {
+                System.err.println("Order not found: " + e.getMessage());
             }
-            return orderBook.matchOrders();
+            return new ArrayList<>();
         });
 
         try {
-            return Optional.of(futureTrades.get());
+            return Optional.ofNullable(futureTrades.get());
         } catch (InterruptedException | ExecutionException e) {
             e.printStackTrace();
             return Optional.empty();
@@ -55,15 +62,21 @@ public class TradingEngine {
 
     public Optional<List<Trade>> updateOrderQuantity(Order order, int newQuantity) {
         Future<List<Trade>> futureTrades = executorService.submit(() -> {
-            OrderBook orderBook = orderBooks.get(order.getStockSymbol());
-            if (orderBook != null) {
-                orderBook.updateOrderQuantity(order, newQuantity);
+            try {
+                OrderBook orderBook = orderBooks.get(order.getStockSymbol());
+                if (orderBook != null) {
+                    orderBook.updateOrderQuantity(order, newQuantity);
+                    return orderBook.matchOrders();
+                }
+            } catch (NoPendingOrderMatchException e) {
+                // Handle the exception (e.g., log it, rethrow it, etc.)
+                System.err.println("Order not found: " + e.getMessage());
             }
-            return orderBook.matchOrders();
+            return new ArrayList<>();
         });
 
         try {
-            return Optional.of(futureTrades.get());
+            return Optional.ofNullable(futureTrades.get());
         } catch (InterruptedException | ExecutionException e) {
             e.printStackTrace();
             return Optional.empty();
@@ -72,9 +85,13 @@ public class TradingEngine {
 
     public void cancelOrder(Order order) {
         executorService.submit(() -> {
-            OrderBook orderBook = orderBooks.get(order.getStockSymbol());
-            if (orderBook != null) {
-                orderBook.cancelOrder(order);
+            try {
+                OrderBook orderBook = orderBooks.get(order.getStockSymbol());
+                if (orderBook != null) {
+                    orderBook.cancelOrder(order);
+                }
+            } catch (NoPendingOrderMatchException e) {
+                System.err.println("Order not found: " + e.getMessage());
             }
         });
     }

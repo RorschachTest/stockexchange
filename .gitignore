@@ -1,0 +1,6 @@
+lib/
+bin/
+.vscode/
+.DS_Store
+README.md
+src/In-memory Trading System.pdf

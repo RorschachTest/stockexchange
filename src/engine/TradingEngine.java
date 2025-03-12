@@ -19,6 +19,7 @@ public class TradingEngine {
         this.orderBooks = new ConcurrentHashMap<>();
         this.executorService = Executors.newFixedThreadPool(Runtime.getRuntime().availableProcessors());
     }
+    
     public List<Trade> addOrder(Order order) {
         Future<List<Trade>> futureTrades = executorService.submit(() -> {
             OrderBook orderBook = orderBooks.computeIfAbsent(order.getStockSymbol(), k -> new OrderBook(order.getStockSymbol(), new DefaultMatchingStrategy()));
@@ -50,6 +51,7 @@ public class TradingEngine {
             return null;
         }
     }
+
     public List<Trade> updateOrderQuantity(Order order, int newQuantity) {
         Future<List<Trade>> futureTrades = executorService.submit(() -> {
             OrderBook orderBook = orderBooks.get(order.getStockSymbol());

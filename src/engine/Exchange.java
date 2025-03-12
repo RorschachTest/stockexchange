@@ -13,7 +13,7 @@ public class Exchange {
     public Exchange(Map<String, Stock> stocks) {
         this.stocks = stocks;
         this.orderManagement = new OrderManagement();
-        this.tradingEngine = new TradingEngine(orderManagement);
+        this.tradingEngine = new TradingEngine();
     }
 
     public void addStock(Stock stock) {

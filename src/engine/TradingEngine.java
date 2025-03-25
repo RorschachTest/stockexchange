@@ -69,7 +69,6 @@ public class TradingEngine {
                     return orderBook.matchOrders();
                 }
             } catch (NoPendingOrderMatchException e) {
-                // Handle the exception (e.g., log it, rethrow it, etc.)
                 System.err.println("Order not found: " + e.getMessage());
             }
             return new ArrayList<>();
